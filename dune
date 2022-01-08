@@ -1,0 +1,9 @@
+(env
+ (dev
+  (flags
+   (:standard -w -27 -w -32 -w -21))))
+
+(library
+ (name fatamorgana)
+ (modules actor counter impl_id impl_cps impl_queue)
+ (wrapped false))
