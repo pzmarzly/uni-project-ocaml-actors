@@ -4,33 +4,53 @@ module Executor : sig
   type 'data pid
   val make_pid : (module Actor with type data = 'data) -> ('data pid -> 'a) -> 'a
 
-  type queue
-  type 'a task =
-  | Finished of 'a
-  | Enqueued of (queue -> 'a task)
-
+  type 'a task
+  val id_task : 'a -> 'a task
   val enqueue_call : 'data pid -> ('data, 'ret) call -> ('ret -> 'a task) -> 'a task
-  val run : 'a task -> 'a
-end = struct
-  type 'a pid = 'a ref
-  let make_pid (type data) (module M : Actor with type data = data) k =
-    k (ref M.default)
 
-  type queue = (unit -> unit) list
+  type t
+  val new_executor : unit -> t
+  val add_task : t -> unit task -> unit
+  val run_tasks : t -> unit
+end = struct
+  type 'a pid = 'a ref * (unit -> unit) list ref
+  let make_pid (type data) (module M : Actor with type data = data) k =
+    k (ref M.default, ref [])
+
   type 'a task =
+  | SentTo of (unit -> unit) list ref
   | Finished of 'a
-  | Enqueued of (queue -> 'a task)
+  | Enqueued of (unit -> 'a task)
+  let id_task x = Finished x
 
   let enqueue_call pid fn k =
-    Enqueued (fun queue ->
-      let data, ret = fn !pid in
-      pid := data;
-      k ret)
+    Enqueued (fun () ->
+      let data, queue = pid in
+      let task = (fun () ->
+        let new_data, ret = fn !data in
+        data := new_data;
+        let _ = k ret in ()
+      ) in
+      queue := task :: !queue;
+      SentTo queue)
 
-  let rec run task =
+  type t = unit task Queue.t
+  let new_executor = Queue.create
+  let add_task t task = Queue.push task t
+  let rec drain_queue queue =
+    Enqueued (fun () ->
+      match !queue with
+      | [] -> Finished ()
+      | x :: xs -> x (); queue := xs; drain_queue queue)
+  let rec run_task t task =
     match task with
-    | Finished value -> value
-    | Enqueued fn -> run (fn [])
+    | SentTo queue -> Queue.push (drain_queue queue) t
+    | Finished value -> ()
+    | Enqueued fn -> run_task t (fn ())
+  let run_tasks t =
+    while not (Queue.is_empty t) do
+      let _ = run_task t (Queue.pop t) in ()
+    done
 end
 
 module QueueMonad : sig
@@ -57,5 +77,5 @@ end = struct
     { run = fun k -> Executor.enqueue_call pid fn k }
 
   let into_task t =
-    t.run (fun x -> Finished x)
+    t.run Executor.id_task
 end
