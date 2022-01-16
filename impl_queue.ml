@@ -5,7 +5,7 @@ module Executor : sig
   val make_pid : (module Actor with type data = 'data) -> ('data pid -> 'a) -> 'a
 
   type 'a task
-  val id_task : 'a -> 'a task
+  val return_task : 'a -> 'a task
   val enqueue_call : 'data pid -> ('data, 'ret) call -> ('ret -> 'a task) -> 'a task
 
   type t
@@ -21,7 +21,7 @@ end = struct
   | SentTo of (unit -> unit) list ref
   | Finished of 'a
   | Enqueued of (unit -> 'a task)
-  let id_task x = Finished x
+  let return_task x = Finished x
 
   let enqueue_call pid fn k =
     Enqueued (fun () ->
@@ -37,19 +37,19 @@ end = struct
   type t = unit task Queue.t
   let new_executor = Queue.create
   let add_task t task = Queue.push task t
-  let rec drain_queue queue =
+  let rec drain_queue_task queue =
     Enqueued (fun () ->
       match !queue with
       | [] -> Finished ()
-      | x :: xs -> x (); queue := xs; drain_queue queue)
+      | x :: xs -> x (); queue := xs; drain_queue_task queue)
   let rec run_task t task =
     match task with
-    | SentTo queue -> Queue.push (drain_queue queue) t
+    | SentTo queue -> Queue.push (drain_queue_task queue) t
     | Finished value -> ()
     | Enqueued fn -> run_task t (fn ())
   let run_tasks t =
     while not (Queue.is_empty t) do
-      let _ = run_task t (Queue.pop t) in ()
+      run_task t (Queue.pop t)
     done
 end
 
@@ -77,5 +77,5 @@ end = struct
     { run = fun k -> Executor.enqueue_call pid fn k }
 
   let into_task t =
-    t.run Executor.id_task
+    t.run Executor.return_task
 end
