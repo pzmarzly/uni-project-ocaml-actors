@@ -31,7 +31,7 @@ let main_cps =
   let* pid = CpsMonad.spawn (module Counter) in
   let* current = CpsMonad.call pid Counter.get_current in
   CpsMonad.return (Printf.printf "%i\n" current) *)
-open Impl_queue
+open Executor
 let main =
   let (let* ) = QueueMonad.bind in
   let* pid = QueueMonad.spawn (module Counter) in
