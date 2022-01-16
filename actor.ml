@@ -6,7 +6,7 @@ type serializer =
 module type Actor = sig
   type data
   val data_format : (string * serializer) list
-  val default : data
+  val default : unit -> data
 end
 
 module rec Executor : sig
@@ -14,7 +14,7 @@ module rec Executor : sig
   type 'a task
   type t
 
-  val make_pid : (module Actor with type data = 'data) -> ('data pid -> 'a) -> 'a
+  val spawn : (module Actor with type data = 'data) -> 'data pid
 
   val return_task : 'a -> 'a task
   val enqueue_call : 'data pid -> ('data, 'ret) T.call -> ('ret -> 'a task) -> 'a task
@@ -33,8 +33,8 @@ end = struct
   (* stan executora: kolejka zadań *)
   and t = unit task Queue.t
 
-  let make_pid (type data) (module M : Actor with type data = data) k =
-    k (ref M.default, ref [])
+  let spawn (type data) (module M : Actor with type data = data) =
+    ref (M.default ()), ref []
 
   let return_task x = Finished x
 
@@ -82,7 +82,7 @@ and M : sig
   val bind : 'a t -> ('a -> 'b t) -> 'b t
   val flatten : 'a t t -> 'a t
 
-  val spawn : (module Actor with type data = 'data) -> 'data pid t
+  val spawn : (module Actor with type data = 'data) -> 'data pid
   val call : 'data pid -> ('data, 'a) T.call -> 'a t
   val into_task : 'a t -> 'a Executor.task
 end = struct
@@ -95,7 +95,7 @@ end = struct
   let flatten x = bind x (fun y -> y)
 
   let spawn (type data) (module M : Actor with type data = data) =
-    { run = fun k -> Executor.make_pid (module M) k }
+    Executor.spawn (module M)
 
   let call pid fn =
     { run = fun k -> Executor.enqueue_call pid fn k }

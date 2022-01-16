@@ -1,16 +1,19 @@
 open Actor
+let (let* ) = M.bind
 
 module Counter
 : sig
   include Actor
-  val increase : data T.cast
+  val increase : (data, unit) T.call
+  val get : (data, int) T.call
   val set : int -> (data, int) T.call
 end
 = struct
   type data = int
   let data_format = [("value", SInt)]
-  let default = 0
-  let increase v = M.return (v + 1)
+  let default () = 0
+  let increase v = M.return (v + 1, ())
+  let get v = M.return (v, v)
   let set new_state state = M.return (new_state, state)
 end
 
@@ -23,19 +26,28 @@ module Counters
   val set_current : int -> (data, int) T.call
 end
 = struct
-  type data = int * int
-  let data_format = [("current", SInt); ("total", SInt)]
+  type data = Counter.data M.pid * Counter.data M.pid
+  let data_format = []
 
-  let default = (0, 0)
-  let increase (state1, state2) = M.return (state1 + 1, state2 + 1)
-  let get_current (state1, state2) = M.return ((state1, state2), state1)
-  let get_total (state1, state2) = M.return ((state1, state2), state2)
-  let set_current new_state1 (state1, state2) = M.return ((new_state1, state2), state1)
+  let default () = M.spawn (module Counter), M.spawn (module Counter)
+  let increase (cur, tot) =
+    let* () = M.call cur Counter.increase in
+    let* () = M.call tot Counter.increase in
+    M.return (cur, tot)
+  let get_current (cur, tot) =
+    let* value = M.call cur Counter.get in
+    M.return ((cur, tot), value)
+  let get_total (cur, tot) =
+    let* value = M.call tot Counter.get in
+    M.return ((cur, tot), value)
+  let set_current new_cur (cur, tot) =
+    let* old_cur = M.call cur (Counter.set new_cur) in
+    M.return ((cur, tot), old_cur)
 end
 
 let main =
-  let (let* ) = M.bind in
-  let* pid = M.spawn (module Counters) in
+  let pid = M.spawn (module Counters) in
+  (* let* () = M.call pid Counters.increase in *)
   let* current = M.call pid Counters.get_current in
   M.return (Printf.printf "%i\n" current)
 
