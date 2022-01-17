@@ -4,7 +4,7 @@ let (let* ) = M.bind
 module Counter
 : sig
   include Actor
-  val increase : (data, unit) T.call
+  val increase : data T.cast
   val get : (data, int) T.call
   val set : int -> (data, int) T.call
 end
@@ -12,7 +12,7 @@ end
   type data = int
   let data_format = [("value", SInt)]
   let default () = 0
-  let increase v = M.return (v + 1, ())
+  let increase v = M.return (v + 1)
   let get v = M.return (v, v)
   let set new_state state = M.return (new_state, state)
 end
@@ -31,8 +31,8 @@ end
 
   let default () = M.spawn (module Counter), M.spawn (module Counter)
   let increase (cur, tot) =
-    let* () = M.call cur Counter.increase in
-    let* () = M.call tot Counter.increase in
+    let* () = M.cast cur Counter.increase in
+    let* () = M.cast tot Counter.increase in
     M.return (cur, tot)
   let get_current (cur, tot) =
     let* value = M.call cur Counter.get in
@@ -47,7 +47,7 @@ end
 
 let main =
   let pid = M.spawn (module Counters) in
-  (* let* () = M.call pid Counters.increase in *)
+  let* () = M.cast pid Counters.increase in
   let* current = M.call pid Counters.get_current in
   M.return (Printf.printf "%i\n" current)
 
