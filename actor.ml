@@ -17,8 +17,8 @@ module rec Executor : sig
   val spawn : (module Actor with type data = 'data) -> 'data pid
 
   val return_task : 'a -> 'a task
-  val enqueue_cast : 'data pid -> 'data T.cast -> (unit -> 'a task) -> 'a task
-  val enqueue_call : 'data pid -> ('data, 'ret) T.call -> ('ret -> 'a task) -> 'a task
+  val enqueue_cast : 'data pid -> 'data M.cast -> (unit -> 'a task) -> 'a task
+  val enqueue_call : 'data pid -> ('data, 'ret) M.call -> ('ret -> 'a task) -> 'a task
 
   val new_executor : unit -> t
   val add_task : t -> unit M.t -> unit
@@ -39,7 +39,7 @@ end = struct
 
   let return_task x = Finished x
 
-  let enqueue_cast (pid : 'data pid) (fn : 'data T.cast) (k : unit -> 'a task) : 'a task =
+  let enqueue_cast (pid : 'data pid) (fn : 'data M.cast) (k : unit -> 'a task) : 'a task =
     Enqueued (fun () ->
       let data, queue = pid in
       let task : unit M.t =
@@ -51,7 +51,7 @@ end = struct
       in
       Queue.push task queue;
       k ())
-  let enqueue_call (pid : 'data pid) (fn : ('data, 'ret) T.call) (k : 'ret -> 'a task) : 'a task =
+  let enqueue_call (pid : 'data pid) (fn : ('data, 'ret) M.call) (k : 'ret -> 'a task) : 'a task =
     Enqueued (fun () ->
       let data, queue = pid in
       let task : unit M.t =
@@ -85,18 +85,24 @@ and M : sig
   type 'a t
   type 'data pid
 
+  type 'data cast = 'data -> 'data M.t
+  type ('data, 'ret) call = 'data -> ('data * 'ret) M.t
+
   val return : 'a -> 'a t
   val return_lazy : (unit -> 'a) -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
   val flatten : 'a t t -> 'a t
 
   val spawn : (module Actor with type data = 'data) -> 'data pid
-  val cast : 'data pid -> 'data T.cast -> unit t
-  val call : 'data pid -> ('data, 'a) T.call -> 'a t
+  val cast : 'data pid -> 'data cast -> unit t
+  val call : 'data pid -> ('data, 'a) call -> 'a t
   val into_task : 'a t -> 'a Executor.task
 end = struct
   type 'a t = { run : 'r. ('a -> 'r Executor.task) -> 'r Executor.task }
   type 'data pid = 'data Executor.pid
+
+  type 'data cast = 'data -> 'data M.t
+  type ('data, 'ret) call = 'data -> ('data * 'ret) M.t
 
   let return x = { run = fun k -> k x }
   let return_lazy f = { run = fun k -> k (f ()) }
@@ -111,12 +117,4 @@ end = struct
     { run = fun k -> Executor.enqueue_call pid fn k }
   let into_task t =
     t.run Executor.return_task
-end
-
-and T : sig
-  type 'data cast = 'data -> 'data M.t
-  type ('data, 'ret) call = 'data -> ('data * 'ret) M.t
-end = struct
-  type 'data cast = 'data -> 'data M.t
-  type ('data, 'ret) call = 'data -> ('data * 'ret) M.t
 end
