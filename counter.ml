@@ -53,7 +53,7 @@ let main =
 
 let run () =
   let ex = Executor.new_executor () in
-  Executor.add_task ex (M.into_task main);
+  Executor.add_task ex main;
   Executor.run_tasks ex
 
 (* pomysły: *)
