@@ -25,17 +25,17 @@ module rec Executor : sig
   val run_tasks : t -> unit
 end = struct
   (* instancja aktora: wewnętrzny stan i lista obliczeń do wykonania *)
-  type 'a pid = 'a ref * unit M.t list ref
+  type 'a pid = 'a ref * unit M.t Queue.t
   (* stan zadania do wykonania/wykonanego na executorze *)
   and 'a task =
-  | SentTo of unit M.t list ref
+  | SentTo of unit M.t Queue.t
   | Finished of 'a
   | Enqueued of (unit -> 'a task)
   (* stan executora: kolejka zadań *)
   and t = unit task Queue.t
 
   let spawn (type data) (module M : Actor with type data = data) =
-    ref (M.default ()), ref []
+    ref (M.default ()), Queue.create ()
 
   let return_task x = Finished x
 
@@ -49,7 +49,7 @@ end = struct
             data := new_data;
             M.return ())
       in
-      queue := task :: !queue;
+      Queue.push task queue;
       k ())
   let enqueue_call (pid : 'data pid) (fn : ('data, 'ret) T.call) (k : 'ret -> 'a task) : 'a task =
     Enqueued (fun () ->
@@ -62,19 +62,17 @@ end = struct
             let _ = k ret in
             M.return ())
       in
-      queue := task :: !queue;
+      Queue.push task queue;
       SentTo queue)
 
   let new_executor () : unit task Queue.t = Queue.create ()
   let add_task t task = Queue.push task t
-  let rec make_task_for_actor (queue : unit M.t list ref) t : unit task =
+  let make_task_for_actor (queue : unit M.t Queue.t) t : unit task =
     Enqueued (fun () ->
-      match !queue with
-      | [] -> Finished ()
-      | x :: xs ->
-        Queue.push (x |> M.into_task) t;
-        queue := xs;
-        make_task_for_actor queue t)
+      while not (Queue.is_empty queue) do
+        Queue.push (Queue.pop queue |> M.into_task) t
+      done;
+      Finished ())
   let rec run_task t task =
     match task with
     | SentTo queue -> Queue.push (make_task_for_actor queue t) t
