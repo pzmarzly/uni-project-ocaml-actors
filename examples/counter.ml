@@ -1,5 +1,5 @@
-open Actor
-open Actor.M
+open Fatamorgana.Actor
+open Fatamorgana.Actor.M
 let (let* ) = bind
 
 module Counter
@@ -52,7 +52,7 @@ let main =
   let* current = call pid Counters.get_current in
   return (Printf.printf "%i\n" current)
 
-let run () =
+let _ =
   let ex = Executor.new_executor () in
   Executor.add_task ex main;
   Executor.run_tasks ex

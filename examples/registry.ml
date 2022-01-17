@@ -1,5 +1,5 @@
-open Actor
-open Actor.M
+open Fatamorgana.Actor
+open Fatamorgana.Actor.M
 let (let* ) = bind
 
 module Registry (Impl : Actor) : sig
@@ -31,12 +31,18 @@ end
 
 module CounterInstance = Registry(Counter)
 
-let main =
+let main1 =
   let* () = cast (CounterInstance.get ()) Counter.increase in
   let* current = call (CounterInstance.get ()) Counter.get in
   return (Printf.printf "%i\n" current)
 
-let run () =
+let main2 =
+  let* () = cast (CounterInstance.get ()) Counter.increase in
+  let* current = call (CounterInstance.get ()) Counter.get in
+  return (Printf.printf "%i\n" current)
+
+let _ =
   let ex = Executor.new_executor () in
-  Executor.add_task ex main;
+  Executor.add_task ex main1;
+  Executor.add_task ex main2;
   Executor.run_tasks ex
