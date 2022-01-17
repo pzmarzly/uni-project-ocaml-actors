@@ -5,5 +5,5 @@
 
 (library
  (name fatamorgana)
- (modules actor counter server)
+ (modules actor counter server registry)
  (wrapped false))
