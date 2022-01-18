@@ -4,11 +4,11 @@ let (let* ) = bind
 
 module Registry (Impl : Actor) : sig
   include (module type of Impl)
-  val get : unit -> Impl.data M.pid
-  val set : Impl.data M.pid -> unit
+  val get : unit -> Impl.data pid
+  val set : Impl.data pid -> unit
 end = struct
   include Impl
-  let instance = ref (M.spawn (module Impl))
+  let instance = ref (spawn (module Impl))
   let get () = !instance
   let set v = instance := v
 end
@@ -24,9 +24,9 @@ end
   type data = int
   let data_format = [("value", SInt)]
   let default () = 0
-  let increase v = M.return (v + 1)
-  let get v = M.return (v, v)
-  let set new_state state = M.return (new_state, state)
+  let increase v = return (v + 1)
+  let get v = return (v, v)
+  let set new_state state = return (new_state, state)
 end
 
 module CounterInstance = Registry(Counter)

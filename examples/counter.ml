@@ -13,9 +13,9 @@ end
   type data = int
   let data_format = [("value", SInt)]
   let default () = 0
-  let increase v = M.return (v + 1)
-  let get v = M.return (v, v)
-  let set new_state state = M.return (new_state, state)
+  let increase v = return (v + 1)
+  let get v = return (v, v)
+  let set new_state state = return (new_state, state)
 end
 
 module Counters
