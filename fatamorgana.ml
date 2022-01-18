@@ -118,3 +118,12 @@ end = struct
   let into_task t =
     t.run Executor.return_task
 end
+
+type 'data pid = 'data M.pid
+type 'data cast = 'data M.cast
+type ('data, 'ret) call = ('data, 'ret) M.call
+let return = M.return
+let bind = M.bind
+let spawn = M.spawn
+let cast = M.cast
+let call = M.call

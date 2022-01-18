@@ -1,5 +1,4 @@
-open Fatamorgana.Actor
-open Fatamorgana.Actor.M
+open Fatamorgana
 let (let* ) = bind
 
 module Registry (Impl : Actor) : sig
