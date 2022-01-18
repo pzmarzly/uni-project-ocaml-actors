@@ -53,5 +53,5 @@ let main =
 
 let _ =
   let ex = Executor.new_executor () in
-  Executor.add_task ex main;
+  Executor.add ex main;
   Executor.run_tasks ex

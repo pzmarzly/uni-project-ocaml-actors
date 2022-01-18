@@ -15,69 +15,71 @@ module rec Executor : sig
   type t
 
   val spawn : (module Actor with type data = 'data) -> 'data pid
-
-  val return_task : 'a -> 'a task
-  val enqueue_cast : 'data pid -> 'data M.cast -> (unit -> 'a task) -> 'a task
-  val enqueue_call : 'data pid -> ('data, 'ret) M.call -> ('ret -> 'a task) -> 'a task
+  val enqueue_cast : 'data pid -> 'data M.cast -> (unit -> unit task) -> unit task
+  val enqueue_call : 'data pid -> ('data, 'ret) M.call -> ('ret -> unit task) -> unit task
 
   val new_executor : unit -> t
-  val add_task : t -> unit M.t -> unit
+  val add_task : t -> unit task -> unit
+  val add : t -> unit M.t -> unit
   val run_tasks : t -> unit
 end = struct
   (* instancja aktora: wewnętrzny stan i lista obliczeń do wykonania *)
-  type 'a pid = 'a ref * unit M.t Queue.t
+  type 'a pid = 'a ref * unit task Queue.t
   (* stan zadania do wykonania/wykonanego na executorze *)
   and 'a task =
-  | SentTo of unit M.t Queue.t
   | Finished of 'a
-  | Enqueued of (unit -> 'a task)
+  | Enqueue of (unit -> 'a task)
+  | ProcessMessagebox of unit task Queue.t
+  | Pair of 'a task * 'a task
   (* stan executora: kolejka obliczeń do wykonania *)
-  and t = unit M.t Queue.t
+  and t = unit task Queue.t
 
   let spawn (type data) (module M : Actor with type data = data) =
     ref (M.default ()), Queue.create ()
-
-  let return_task x = Finished x
-
-  let enqueue_cast (pid : 'data pid) (fn : 'data M.cast) (k : unit -> 'a task) : 'a task =
-    Enqueued (fun () ->
+  let enqueue_cast (pid : 'data pid) (fn : 'data M.cast) (k : unit -> unit task) : unit task =
+    Enqueue (fun () ->
       let data, queue = pid in
-      let task : unit M.t =
+      let m : unit M.t =
         M.bind
           (M.flatten (M.return_lazy (fun () -> fn !data)))
           (fun new_data ->
             data := new_data;
-            M.return ())
-      in
-      Queue.push task queue;
-      k ())
-  let enqueue_call (pid : 'data pid) (fn : ('data, 'ret) M.call) (k : 'ret -> 'a task) : 'a task =
-    Enqueued (fun () ->
+            M.return ()) in
+      let t : unit task =
+        M.into_task m (fun () -> Finished ()) in
+      Queue.push t queue;
+      Pair(k (), ProcessMessagebox queue))
+  let enqueue_call (pid : 'data pid) (fn : ('data, 'ret) M.call) (k : 'ret -> unit task) : unit task =
+    Enqueue (fun () ->
       let data, queue = pid in
-      let task : unit M.t =
+      let m : 'ret M.t =
         M.bind
           (M.flatten (M.return_lazy (fun () -> fn !data)))
           (fun (new_data, ret) ->
             data := new_data;
-            let _ = k ret in
-            M.return ())
-      in
-      Queue.push task queue;
-      SentTo queue)
+            M.return ret) in
+      let t : unit task =
+        M.into_task m (fun ret -> (Enqueue (fun () -> k ret))) in
+      Queue.push t queue;
+      ProcessMessagebox queue)
 
   let new_executor () : t = Queue.create ()
   let add_task t task = Queue.push task t
+  let add t m = add_task t (M.into_task m (fun () -> Finished ()))
   let rec run_task t task =
     match task with
-    | SentTo queue ->
+    | ProcessMessagebox queue ->
       Queue.push
-        (M.return_lazy (fun () -> Queue.transfer queue t))
+        (Enqueue (fun () -> Finished(Queue.transfer queue t)))
         t
     | Finished value -> ()
-    | Enqueued fn -> run_task t (fn ())
+    | Enqueue fn -> run_task t (fn ())
+    | Pair (t1, t2) ->
+      Queue.push t2 t;
+      run_task t t1
   let run_tasks t =
     while not (Queue.is_empty t) do
-      run_task t (Queue.pop t |> M.into_task)
+      run_task t (Queue.pop t)
     done
 end
 
@@ -96,27 +98,26 @@ and M : sig
   val spawn : (module Actor with type data = 'data) -> 'data pid
   val cast : 'data pid -> 'data cast -> unit t
   val call : 'data pid -> ('data, 'a) call -> 'a t
-  val into_task : 'a t -> 'a Executor.task
+  val into_task : 'a t -> ('a -> unit Executor.task) -> unit Executor.task
 end = struct
-  type 'a t = { run : 'r. ('a -> 'r Executor.task) -> 'r Executor.task }
+  type 'a t = ('a -> unit Executor.task) -> unit Executor.task
   type 'data pid = 'data Executor.pid
 
   type 'data cast = 'data -> 'data M.t
   type ('data, 'ret) call = 'data -> ('data * 'ret) M.t
 
-  let return x = { run = fun k -> k x }
-  let return_lazy f = { run = fun k -> k (f ()) }
-  let bind a f = { run = fun k -> a.run (fun x -> (f x).run k ) }
+  let return x = fun k -> k x
+  let return_lazy f = fun k -> k (f ())
+  let bind a f = fun k -> a (fun x -> f x k )
   let flatten x = bind x (fun y -> y)
 
   let spawn (type data) (module M : Actor with type data = data) =
     Executor.spawn (module M)
-  let cast pid fn =
-    { run = fun k -> Executor.enqueue_cast pid fn k }
-  let call pid fn =
-    { run = fun k -> Executor.enqueue_call pid fn k }
-  let into_task t =
-    t.run Executor.return_task
+  let cast (pid : 'data pid) (fn : 'data cast) : unit t =
+     fun k -> Executor.enqueue_cast pid fn k
+  let call (pid : 'data pid) (fn : ('data, 'a) call) : 'a t =
+     fun k -> Executor.enqueue_call pid fn k
+  let into_task t fn = t fn
 end
 
 type 'data pid = 'data M.pid

@@ -46,5 +46,5 @@ let _ =
   else
     let port = Array.get Sys.argv 1 |> int_of_string in
     let ex = Executor.new_executor () in
-    Executor.add_task ex (main port);
+    Executor.add ex (main port);
     Executor.run_tasks ex

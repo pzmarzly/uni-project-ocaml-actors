@@ -42,6 +42,6 @@ let main2 =
 
 let _ =
   let ex = Executor.new_executor () in
-  Executor.add_task ex main1;
-  Executor.add_task ex main2;
+  Executor.add ex main1;
+  Executor.add ex main2;
   Executor.run_tasks ex
