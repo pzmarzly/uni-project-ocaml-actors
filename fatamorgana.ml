@@ -18,7 +18,7 @@ module rec Executor : sig
   val enqueue_cast : 'data pid -> 'data M.cast -> (unit -> unit task) -> unit task
   val enqueue_call : 'data pid -> ('data, 'ret) M.call -> ('ret -> unit task) -> unit task
 
-  val new_executor : unit -> t
+  val create : unit -> t
   val add_task : t -> unit task -> unit
   val add : t -> unit M.t -> unit
   val run_tasks : t -> unit
@@ -65,7 +65,7 @@ end = struct
       inbox := t :: !inbox;
       ProcessInbox inbox)
 
-  let new_executor () : t = Queue.create ()
+  let create () : t = Queue.create ()
   let add_task exec task = Queue.push task exec
   let add exec m = add_task exec (M.into_task m (fun () -> Finished ()))
   let rec run_task exec task =

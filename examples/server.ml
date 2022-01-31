@@ -45,6 +45,6 @@ let _ =
     print_endline "please provide port number"
   else
     let port = Array.get Sys.argv 1 |> int_of_string in
-    let ex = Executor.new_executor () in
+    let ex = Executor.create () in
     Executor.add ex (main port);
     Executor.run_tasks ex

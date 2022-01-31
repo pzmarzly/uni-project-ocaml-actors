@@ -53,7 +53,7 @@ let main =
   return ()
 
 let _ =
-  let ex = Executor.new_executor () in
+  let ex = Executor.create () in
   print_endline "[system] scheduling task";
   Executor.add ex main;
   print_endline "[system] starting executor";

@@ -41,7 +41,7 @@ let main2 =
   return (Printf.printf "%i\n" current)
 
 let _ =
-  let ex = Executor.new_executor () in
+  let ex = Executor.create () in
   Executor.add ex main1;
   Executor.add ex main2;
   Executor.run_tasks ex
