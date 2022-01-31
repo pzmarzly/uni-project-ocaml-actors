@@ -23,7 +23,7 @@ module rec Executor : sig
   val add : t -> unit M.t -> unit
   val run_tasks : t -> unit
 end = struct
-  (* message box *)
+  (* skrzynka odbiorcza aktora, w formie zadań *)
   type inbox = unit task list ref
   (* instancja aktora: wewnętrzny stan i lista obliczeń do wykonania *)
   and 'a pid = 'a ref * inbox
@@ -33,14 +33,14 @@ end = struct
   | Enqueue of (unit -> 'a task)
   | ProcessInbox of inbox
   | Pair of 'a task * 'a task
-  (* stan executora: kolejka obliczeń do wykonania *)
+  (* stan executora: kolejka zadań do wykonania *)
   and t = unit task Queue.t
 
   let spawn (type data) (module M : Actor with type data = data) =
     ref (M.default ()), ref []
   let enqueue_cast (pid : 'data pid) (fn : 'data M.cast) (k : unit -> unit task) : unit task =
     Enqueue (fun () ->
-      let data, queue = pid in
+      let data, inbox = pid in
       let m : unit M.t =
         M.bind
           (M.flatten (M.return_lazy (fun () -> fn !data)))
@@ -49,11 +49,11 @@ end = struct
             M.return ()) in
       let t : unit task =
         Enqueue (fun () -> M.into_task m (fun () -> Finished ())) in
-      queue := t :: !queue;
-      Pair(k (), ProcessInbox queue))
+      inbox := t :: !inbox;
+      Pair(k (), ProcessInbox inbox))
   let enqueue_call (pid : 'data pid) (fn : ('data, 'ret) M.call) (k : 'ret -> unit task) : unit task =
     Enqueue (fun () ->
-      let data, queue = pid in
+      let data, inbox = pid in
       let m : 'ret M.t =
         M.bind
           (M.flatten (M.return_lazy (fun () -> fn !data)))
@@ -62,8 +62,8 @@ end = struct
             M.return ret) in
       let t : unit task =
         Enqueue (fun () -> M.into_task m (fun ret -> (Enqueue (fun () -> k ret)))) in
-      queue := t :: !queue;
-      ProcessInbox queue)
+      inbox := t :: !inbox;
+      ProcessInbox inbox)
 
   let new_executor () : t = Queue.create ()
   let add_task exec task = Queue.push task exec
@@ -74,7 +74,7 @@ end = struct
       let t = Enqueue (fun () ->
         let inbox_state = !inbox in
         inbox := [];
-        inbox_state |> List.rev |> List.to_seq |> Queue.add_seq exec;
+        Queue.add_seq exec (inbox_state |> List.rev |> List.to_seq);
         Finished ())
       in
       Queue.push t exec
