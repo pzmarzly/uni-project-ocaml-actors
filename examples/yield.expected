@@ -1,0 +1,11 @@
+[client] calling Expensive.cast
+[client] called Expensive.cast
+[client] calling Expensive.cast
+[client] called Expensive.cast
+[client] calling yield
+[expens] in Expensive.cast
+[expens] in Expensive.cast
+[client] called yield
+[client] calling Expensive.cast
+[client] called Expensive.cast
+[expens] in Expensive.cast

@@ -63,7 +63,7 @@ end = struct
       let t : unit task =
         Lazy (fun () -> M.into_task m k) in
       inbox := t :: !inbox;
-      ProcessInbox inbox)
+      Pair(Finished (), ProcessInbox inbox))
 
   let create () : t = Queue.create ()
   let add_task exec task = Queue.push task exec
