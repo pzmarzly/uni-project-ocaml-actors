@@ -28,20 +28,27 @@ end
   let set new_state state = return (new_state, state)
 end
 
-module CounterInstance = Registry (Counter)
+module CounterInstance1 = Registry (Counter)
+module CounterInstance2 = Registry (Counter)
 
 let main1 =
-  let* () = cast (CounterInstance.get ()) Counter.increase in
-  let* current = call (CounterInstance.get ()) Counter.get in
+  let* () = cast (CounterInstance1.get ()) Counter.increase in
+  let* current = call (CounterInstance1.get ()) Counter.get in
   return (Printf.printf "%i\n" current)
 
 let main2 =
-  let* () = cast (CounterInstance.get ()) Counter.increase in
-  let* current = call (CounterInstance.get ()) Counter.get in
+  let* () = cast (CounterInstance1.get ()) Counter.increase in
+  let* current = call (CounterInstance1.get ()) Counter.get in
+  return (Printf.printf "%i\n" current)
+
+let main3 =
+  let* () = cast (CounterInstance2.get ()) Counter.increase in
+  let* current = call (CounterInstance2.get ()) Counter.get in
   return (Printf.printf "%i\n" current)
 
 let _ =
   let ex = Executor.create () in
   Executor.add ex main1;
   Executor.add ex main2;
+  Executor.add ex main3;
   Executor.run_tasks ex
