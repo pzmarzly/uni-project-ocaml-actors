@@ -23,19 +23,21 @@ module rec Executor : sig
   val add : t -> unit M.t -> unit
   val run_tasks : t -> unit
 end = struct
+  (* message box *)
+  type inbox = unit task list ref
   (* instancja aktora: wewnętrzny stan i lista obliczeń do wykonania *)
-  type 'a pid = 'a ref * unit task Queue.t
+  and 'a pid = 'a ref * inbox
   (* stan zadania do wykonania/wykonanego na executorze *)
   and 'a task =
   | Finished of 'a
   | Enqueue of (unit -> 'a task)
-  | ProcessMessagebox of unit task Queue.t
+  | ProcessInbox of inbox
   | Pair of 'a task * 'a task
   (* stan executora: kolejka obliczeń do wykonania *)
   and t = unit task Queue.t
 
   let spawn (type data) (module M : Actor with type data = data) =
-    ref (M.default ()), Queue.create ()
+    ref (M.default ()), ref []
   let enqueue_cast (pid : 'data pid) (fn : 'data M.cast) (k : unit -> unit task) : unit task =
     Enqueue (fun () ->
       let data, queue = pid in
@@ -46,9 +48,9 @@ end = struct
             data := new_data;
             M.return ()) in
       let t : unit task =
-        M.into_task m (fun () -> Finished ()) in
-      Queue.push t queue;
-      Pair(k (), ProcessMessagebox queue))
+        Enqueue (fun () -> M.into_task m (fun () -> Finished ())) in
+      queue := t :: !queue;
+      Pair(k (), ProcessInbox queue))
   let enqueue_call (pid : 'data pid) (fn : ('data, 'ret) M.call) (k : 'ret -> unit task) : unit task =
     Enqueue (fun () ->
       let data, queue = pid in
@@ -59,27 +61,31 @@ end = struct
             data := new_data;
             M.return ret) in
       let t : unit task =
-        M.into_task m (fun ret -> (Enqueue (fun () -> k ret))) in
-      Queue.push t queue;
-      ProcessMessagebox queue)
+        Enqueue (fun () -> M.into_task m (fun ret -> (Enqueue (fun () -> k ret)))) in
+      queue := t :: !queue;
+      ProcessInbox queue)
 
   let new_executor () : t = Queue.create ()
-  let add_task t task = Queue.push task t
-  let add t m = add_task t (M.into_task m (fun () -> Finished ()))
-  let rec run_task t task =
+  let add_task exec task = Queue.push task exec
+  let add exec m = add_task exec (M.into_task m (fun () -> Finished ()))
+  let rec run_task exec task =
     match task with
-    | ProcessMessagebox queue ->
-      Queue.push
-        (Enqueue (fun () -> Finished(Queue.transfer queue t)))
-        t
+    | ProcessInbox inbox ->
+      let t = Enqueue (fun () ->
+        let inbox_state = !inbox in
+        inbox := [];
+        inbox_state |> List.rev |> List.to_seq |> Queue.add_seq exec;
+        Finished ())
+      in
+      Queue.push t exec
     | Finished value -> ()
-    | Enqueue fn -> run_task t (fn ())
+    | Enqueue fn -> run_task exec (fn ())
     | Pair (t1, t2) ->
-      Queue.push t2 t;
-      run_task t t1
-  let run_tasks t =
-    while not (Queue.is_empty t) do
-      run_task t (Queue.pop t)
+      Queue.push t2 exec;
+      run_task exec t1
+  let run_tasks exec =
+    while not (Queue.is_empty exec) do
+      run_task exec (Queue.pop exec)
     done
 end
 

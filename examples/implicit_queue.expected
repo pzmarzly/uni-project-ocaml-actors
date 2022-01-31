@@ -1,0 +1,16 @@
+[  main] calling Client.work
+[system] scheduling task
+[system] starting executor
+[  main] called Client.work
+[client] calling Expensive.cast
+[client] called Expensive.cast
+[client] calling Expensive.cast
+[client] called Expensive.cast
+[client] calling Expensive.call
+[expens] in Expensive.cast
+[expens] in Expensive.cast
+[expens] in Expensive.call
+[client] called Expensive.call
+[client] calling Expensive.cast
+[client] called Expensive.cast
+[expens] in Expensive.cast

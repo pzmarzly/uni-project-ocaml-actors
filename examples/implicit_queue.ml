@@ -12,10 +12,10 @@ end
   let data_format = []
   let default () = ()
   let cast () =
-    print_endline "in Expensive.cast";
+    print_endline "[expens] in Expensive.cast";
     return ()
   let call () =
-    print_endline "in Expensive.call";
+    print_endline "[expens] in Expensive.call";
     return ((), ())
 end
 
@@ -30,31 +30,31 @@ end
 
   let default () = spawn (module Expensive)
   let work pid =
-    print_endline "calling Expensive.cast";
+    print_endline "[client] calling Expensive.cast";
     let* () = cast pid Expensive.cast in
-    print_endline "called Expensive.cast";
-    print_endline "calling Expensive.cast";
+    print_endline "[client] called Expensive.cast";
+    print_endline "[client] calling Expensive.cast";
     let* () = cast pid Expensive.cast in
-    print_endline "called Expensive.cast";
-    print_endline "calling Expensive.call";
+    print_endline "[client] called Expensive.cast";
+    print_endline "[client] calling Expensive.call";
     let* () = call pid Expensive.call in
-    print_endline "called Expensive.call";
-    print_endline "calling Expensive.cast";
+    print_endline "[client] called Expensive.call";
+    print_endline "[client] calling Expensive.cast";
     let* () = cast pid Expensive.cast in
-    print_endline "called Expensive.cast";
+    print_endline "[client] called Expensive.cast";
     return pid
 end
 
 let main =
   let pid = spawn (module Client) in
-  print_endline "calling Client.work";
+  print_endline "[  main] calling Client.work";
   let* () = cast pid Client.work in
-  print_endline "called Client.work";
+  print_endline "[  main] called Client.work";
   return ()
 
 let _ =
   let ex = Executor.new_executor () in
-  print_endline "scheduling task";
+  print_endline "[system] scheduling task";
   Executor.add ex main;
-  print_endline "starting executor";
+  print_endline "[system] starting executor";
   Executor.run_tasks ex
