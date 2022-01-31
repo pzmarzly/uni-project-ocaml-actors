@@ -28,7 +28,7 @@ end
   let set new_state state = return (new_state, state)
 end
 
-module CounterInstance = Registry(Counter)
+module CounterInstance = Registry (Counter)
 
 let main1 =
   let* () = cast (CounterInstance.get ()) Counter.increase in

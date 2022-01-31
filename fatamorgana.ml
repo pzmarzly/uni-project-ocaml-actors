@@ -50,7 +50,7 @@ end = struct
       let t : unit task =
         Lazy (fun () -> M.into_task m (fun () -> Finished ())) in
       inbox := t :: !inbox;
-      Pair(Lazy k, ProcessInbox inbox))
+      Pair (Lazy k, ProcessInbox inbox))
   let enqueue_call (pid : 'data pid) (fn : ('data, 'ret) M.call) (k : 'ret -> unit task) : unit task =
     Lazy (fun () ->
       let data, inbox = pid in
@@ -63,7 +63,7 @@ end = struct
       let t : unit task =
         Lazy (fun () -> M.into_task m k) in
       inbox := t :: !inbox;
-      Pair(Finished (), ProcessInbox inbox))
+      Pair (Finished (), ProcessInbox inbox))
 
   let create () : t = Queue.create ()
   let add_task exec task = Queue.push task exec
