@@ -137,13 +137,13 @@ let spawn = M.spawn
 let cast = M.cast
 let call = M.call
 
-module rec Yield : sig
+module Yield : sig
   include Actor
-  val noop : (data, unit) M.call
+  val noop : (data, unit) call
 end = struct
   type data = unit
   let data_format = []
   let default () = ()
-  let noop () = M.return ((), ())
+  let noop () = return ((), ())
 end
-let yield = M.call (M.spawn (module Yield)) Yield.noop
+let yield = call (spawn (module Yield)) Yield.noop
