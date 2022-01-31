@@ -30,7 +30,7 @@ end = struct
   (* stan zadania do wykonania/wykonanego na executorze *)
   and 'a task =
   | Finished of 'a
-  | Enqueue of (unit -> 'a task)
+  | Lazy of (unit -> 'a task)
   | ProcessInbox of inbox
   | Pair of 'a task * 'a task
   (* stan executora: kolejka zadań do wykonania *)
@@ -39,7 +39,7 @@ end = struct
   let spawn (type data) (module M : Actor with type data = data) =
     ref (M.default ()), ref []
   let enqueue_cast (pid : 'data pid) (fn : 'data M.cast) (k : unit -> unit task) : unit task =
-    Enqueue (fun () ->
+    Lazy (fun () ->
       let data, inbox = pid in
       let m : unit M.t =
         M.bind
@@ -48,11 +48,11 @@ end = struct
             data := new_data;
             M.return ()) in
       let t : unit task =
-        Enqueue (fun () -> M.into_task m (fun () -> Finished ())) in
+        Lazy (fun () -> M.into_task m (fun () -> Finished ())) in
       inbox := t :: !inbox;
-      Pair(k (), ProcessInbox inbox))
+      Pair(Lazy k, ProcessInbox inbox))
   let enqueue_call (pid : 'data pid) (fn : ('data, 'ret) M.call) (k : 'ret -> unit task) : unit task =
-    Enqueue (fun () ->
+    Lazy (fun () ->
       let data, inbox = pid in
       let m : 'ret M.t =
         M.bind
@@ -61,7 +61,7 @@ end = struct
             data := new_data;
             M.return ret) in
       let t : unit task =
-        Enqueue (fun () -> M.into_task m (fun ret -> (Enqueue (fun () -> k ret)))) in
+        Lazy (fun () -> M.into_task m k) in
       inbox := t :: !inbox;
       ProcessInbox inbox)
 
@@ -71,7 +71,7 @@ end = struct
   let rec run_task exec task =
     match task with
     | ProcessInbox inbox ->
-      let t = Enqueue (fun () ->
+      let t = Lazy (fun () ->
         let inbox_state = !inbox in
         inbox := [];
         Queue.add_seq exec (inbox_state |> List.rev |> List.to_seq);
@@ -79,7 +79,7 @@ end = struct
       in
       Queue.push t exec
     | Finished value -> ()
-    | Enqueue fn -> run_task exec (fn ())
+    | Lazy fn -> run_task exec (fn ())
     | Pair (t1, t2) ->
       Queue.push t2 exec;
       run_task exec t1
@@ -104,6 +104,7 @@ and M : sig
   val spawn : (module Actor with type data = 'data) -> 'data pid
   val cast : 'data pid -> 'data cast -> unit t
   val call : 'data pid -> ('data, 'a) call -> 'a t
+
   val into_task : 'a t -> ('a -> unit Executor.task) -> unit Executor.task
 end = struct
   type 'a t = ('a -> unit Executor.task) -> unit Executor.task
@@ -120,9 +121,10 @@ end = struct
   let spawn (type data) (module M : Actor with type data = data) =
     Executor.spawn (module M)
   let cast (pid : 'data pid) (fn : 'data cast) : unit t =
-     fun k -> Executor.enqueue_cast pid fn k
+    fun k -> Executor.enqueue_cast pid fn k
   let call (pid : 'data pid) (fn : ('data, 'a) call) : 'a t =
-     fun k -> Executor.enqueue_call pid fn k
+    fun k -> Executor.enqueue_call pid fn k
+
   let into_task t fn = t fn
 end
 
@@ -134,3 +136,14 @@ let bind = M.bind
 let spawn = M.spawn
 let cast = M.cast
 let call = M.call
+
+module rec Yield : sig
+  include Actor
+  val noop : (data, unit) M.call
+end = struct
+  type data = unit
+  let data_format = []
+  let default () = ()
+  let noop () = M.return ((), ())
+end
+let yield = M.call (M.spawn (module Yield)) Yield.noop
