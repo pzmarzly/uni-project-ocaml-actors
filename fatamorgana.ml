@@ -32,7 +32,7 @@ end = struct
   | Finished of 'a
   | Lazy of (unit -> 'a task)
   | ProcessInbox of inbox
-  | Pair of 'a task * 'a task
+  | Pair of 'a task * 'a task (* teraz, później *)
   (* stan executora: kolejka zadań do wykonania *)
   and t = unit task Queue.t
 
