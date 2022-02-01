@@ -1,15 +1,13 @@
 open Fatamorgana
 let (let* ) = bind
 
+(* Issue: module type of Impl = Actor *)
 module Registry (Impl : Actor) : sig
   include (module type of Impl)
-  val get : unit -> Impl.data pid
-  val set : Impl.data pid -> unit
+  val get : Impl.data pid
 end = struct
   include Impl
-  let instance = ref (spawn (module Impl))
-  let get () = !instance
-  let set v = instance := v
+  let get = spawn (module Impl)
 end
 
 module Counter
@@ -28,22 +26,22 @@ end
   let set new_state state = return (new_state, state)
 end
 
-module CounterInstance1 = Registry (Counter)
-module CounterInstance2 = Registry (Counter)
+let counter1 = spawn (module Counter)
+let counter2 = spawn (module Counter)
 
 let main1 =
-  let* () = cast (CounterInstance1.get ()) Counter.increase in
-  let* current = call (CounterInstance1.get ()) Counter.get in
+  let* () = cast counter1 Counter.increase in
+  let* current = call counter1 Counter.get in
   return (Printf.printf "%i\n" current)
 
 let main2 =
-  let* () = cast (CounterInstance1.get ()) Counter.increase in
-  let* current = call (CounterInstance1.get ()) Counter.get in
+  let* () = cast counter1 Counter.increase in
+  let* current = call counter1 Counter.get in
   return (Printf.printf "%i\n" current)
 
 let main3 =
-  let* () = cast (CounterInstance2.get ()) Counter.increase in
-  let* current = call (CounterInstance2.get ()) Counter.get in
+  let* () = cast counter2 Counter.increase in
+  let* current = call counter2 Counter.get in
   return (Printf.printf "%i\n" current)
 
 let _ =
