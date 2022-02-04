@@ -172,11 +172,18 @@ type 'data cast = 'data M.cast
 type ('data, 'ret) call = ('data, 'ret) M.call
 let return = M.return
 let bind = M.bind
+let (let*) = M.bind
 let spawn = M.spawn
 let cast = M.cast
 let call = M.call
 let wait_read = M.wait_read
 let wait_write = M.wait_write
+
+let sleep ms =
+  let fd = Timerfd.create Timerfd.Clock.monotonic ms in
+  let* () = wait_read fd in
+  Unix.close fd;
+  return ()
 
 module Yield : sig
   include Actor

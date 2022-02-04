@@ -6,7 +6,7 @@
 (library
  (name fatamorgana)
  (modules fatamorgana)
- (libraries unix)
+ (libraries unix timerfd)
  (wrapped false))
 
-(dirs examples)
+(dirs timerfd examples)

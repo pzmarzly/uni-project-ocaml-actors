@@ -1,0 +1,6 @@
+(library
+ (name timerfd)
+ (libraries unix)
+ (foreign_stubs
+  (language c)
+  (names timerfd)))
