@@ -69,3 +69,4 @@ Other than that, it's very much NOT a state-of-the-art library. I didn't do too 
 - we could play with state serialization, which could enable live reloading
 - if we wanted to, we can now change inbox to be bounded, add `cast_first` and `call_first`, etc.
 - we could implement our own calendar scheduler if we wanted not to use `timerfd`, e.g. FreeBSD's `callout` (fun!)
+- we could catch exception wherever we want in order to do some fancy Erlang/OTP-style recoveries... or even better (OTP clears mailbox on crash)
