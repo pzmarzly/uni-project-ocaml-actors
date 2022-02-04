@@ -1,13 +1,11 @@
 open Fatamorgana
 let (let* ) = bind
 
-module Counter
-: sig
+module Counter : sig
   include Actor
   val increase : data cast
   val get : (data, int) call
-end
-= struct
+end = struct
   type data = int
   let data_format = [("value", SInt)]
   let default () = 0
@@ -15,34 +13,78 @@ end
   let get v = return (v, v)
 end
 
-module Server
-: sig
+module Handler : sig
   include Actor
-  val bind : int -> (data, unit) call
-  val port : (data, int option) call
+  val handle : Unix.file_descr -> data cast
+end = struct
+  type data = int * Counter.data pid
+  let data_format = []
+  let default () = Random.int 100000, spawn (module Counter)
+  let cmd fd buf (id, cnt) =
+    let lower = Bytes.lowercase_ascii buf in
+    let command = Bytes.sub_string lower 0 3 in
+    Printf.printf "Got command from %d: %s\n%!" id command;
+    match command with
+    | "inc" -> cast cnt Counter.increase
+    | "get" ->
+      let* v = call cnt Counter.get in
+      Printf.printf "Replying to %d with state %d\n%!" id v;
+      let v_str = Printf.sprintf "%d\n" v in
+      let v_len = String.length v_str in
+      let* () = wait_write fd in
+      let num = Unix.write_substring fd v_str 0 v_len in
+      assert (num = v_len);
+      return ()
+    | _ -> return ()
+  let rec handle fd state =
+    let* _ = wait_read fd in
+    let buf = Bytes.create 5 in
+    let num = Unix.read fd buf 0 4 in
+    let* () = if num == 4 then cmd fd buf state else return () in
+    let* state = handle fd state in (* TODO: cast_self *)
+    return state
 end
-= struct
+
+module Server : sig
+  include Actor
+  val bind : int -> data cast
+  val port : (data, int) call
+end = struct
   type data = Counter.data pid * int option
   let data_format = []
   let default () = spawn (module Counter), None
+
+  let rec accept server_fd =
+    let* _ = wait_read server_fd in
+    let (client_fd, _client_addr) = Unix.accept server_fd in
+    let* () = cast (spawn (module Handler)) (Handler.handle client_fd) in
+    let* () = accept server_fd in (* TODO: cast_self *)
+    return ()
+
   let bind port state =
     match state with
-    (* TODO: bind *)
-    | pid, None -> return ((pid, Some port), ())
-    | pid, Some x -> failwith "already bound"
-  let port (pid, port) = return ((pid, port), port)
+    | cnt, None ->
+      let server_fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+      Unix.setsockopt server_fd Unix.SO_REUSEADDR true;
+      Unix.bind server_fd (Unix.ADDR_INET (Unix.inet_addr_any, port));
+      Unix.listen server_fd 32;
+      let* () = accept server_fd in
+      return (cnt, Some port)
+    | cnt, Some x -> failwith "already bound"
+
+  (* let port (cnt, port) = return ((cnt, port), Option.get port) *)
+  let port (cnt, port) = return ((cnt, port), 1234)
 end
 
 let main port_in =
   let pid = spawn (module Server) in
-  let* () = call pid (Server.bind port_in) in
+  let* () = cast pid (Server.bind port_in) in
   let* port_out = call pid Server.port in
-  let port_out = Option.get port_out in
-  return (Printf.printf "listening on %i\n" port_out)
+  return (Printf.printf "listening on %i\n%!" port_out)
 
 let _ =
   if Array.length Sys.argv < 2 then
-    print_endline "please provide port number"
+    Printf.printf "Please provide port number\n%!"
   else
     let port = Array.get Sys.argv 1 |> int_of_string in
     let ex = Executor.create () in
