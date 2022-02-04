@@ -7,7 +7,6 @@ module Counter : sig
   val get : (data, int) call
 end = struct
   type data = int
-  let data_format = [("value", SInt)]
   let default () = 0
   let increase v = return (v + 1)
   let get v = return (v, v)
@@ -18,7 +17,6 @@ module Handler : sig
   val handle : Unix.file_descr -> data cast
 end = struct
   type data = int * Counter.data pid
-  let data_format = []
   let default () = Random.int 100000, spawn (module Counter)
   let cmd fd buf (id, cnt) =
     let lower = Bytes.lowercase_ascii buf in
@@ -51,7 +49,6 @@ module Server : sig
   val port : (data, int) call
 end = struct
   type data = Counter.data pid * int option
-  let data_format = []
   let default () = spawn (module Counter), None
 
   let rec accept server_fd state =

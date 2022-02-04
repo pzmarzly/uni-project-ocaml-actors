@@ -19,7 +19,6 @@ module Counter
 end
 = struct
   type data = int
-  let data_format = [("value", SInt)]
   let default () = 0
   let increase v = return (v + 1)
   let get v = return (v, v)

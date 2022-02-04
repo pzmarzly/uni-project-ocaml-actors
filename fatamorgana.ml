@@ -1,11 +1,5 @@
-type serializer =
-| SBool
-| SInt
-| SList of serializer
-
 module type Actor = sig
   type data
-  val data_format : (string * serializer) list
   val default : unit -> data
 end
 
@@ -189,7 +183,6 @@ module Yield : sig
   val noop : (data, unit) call
 end = struct
   type data = unit
-  let data_format = []
   let default () = ()
   let noop () = return ((), ())
 end

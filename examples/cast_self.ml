@@ -10,7 +10,6 @@ module Counter : sig
 end
 = struct
   type data = int
-  let data_format = [("value", SInt)]
   let default () = 0
   let increase v = return (v + 1)
   let rec add_to_five_eager v =
@@ -35,7 +34,6 @@ module CounterSingleton : sig
 end
 = struct
   type data = int
-  let data_format = [("value", SInt)]
   let default () = 0
   let instance () = Option.get !x
   let increase v = return (v + 1)

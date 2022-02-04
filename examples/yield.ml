@@ -8,7 +8,6 @@ module Expensive
 end
 = struct
   type data = unit
-  let data_format = []
   let default () = ()
   let cast () =
     print_endline "[expens] in Expensive.cast";
@@ -22,7 +21,6 @@ module Client
 end
 = struct
   type data = Expensive.data pid
-  let data_format = []
 
   let default () = spawn (module Expensive)
   let work pid =

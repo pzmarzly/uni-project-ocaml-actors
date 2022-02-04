@@ -10,7 +10,6 @@ module Counter
 end
 = struct
   type data = int
-  let data_format = [("value", SInt)]
   let default () = 0
   let increase v = return (v + 1)
   let get v = return (v, v)
@@ -27,7 +26,6 @@ module Counters
 end
 = struct
   type data = Counter.data pid * Counter.data pid
-  let data_format = []
 
   let default () = spawn (module Counter), spawn (module Counter)
   let increase (cur, tot) =
