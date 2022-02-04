@@ -7,8 +7,7 @@ module Counter : sig
   val add_to_five_eager : data cast
   val add_to_ten_lazy : data pid -> data cast
   val get : (data, int) call
-end
-= struct
+end = struct
   type data = int
   let default () = 0
   let increase v = return (v + 1)
@@ -31,8 +30,7 @@ module CounterSingleton : sig
   val increase : data cast
   val add_to_fifteen_lazy : data cast
   val get : (data, int) call
-end
-= struct
+end = struct
   type data = int
   let default () = 0
   let instance () = Option.get !x

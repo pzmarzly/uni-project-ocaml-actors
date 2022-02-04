@@ -1,14 +1,12 @@
 open Fatamorgana
 let (let* ) = bind
 
-module Counter
-: sig
+module Counter : sig
   include Actor
   val increase : data cast
   val get : (data, int) call
   val set : int -> (data, int) call
-end
-= struct
+end = struct
   type data = int
   let default () = 0
   let increase v = return (v + 1)
@@ -16,15 +14,13 @@ end
   let set new_state state = return (new_state, state)
 end
 
-module Counters
-: sig
+module Counters : sig
   include Actor
   val increase : data cast
   val get_current : (data, int) call
   val get_total : (data, int) call
   val set_current : int -> (data, int) call
-end
-= struct
+end = struct
   type data = Counter.data pid * Counter.data pid
 
   let default () = spawn (module Counter), spawn (module Counter)

@@ -10,14 +10,12 @@ end = struct
   let get = spawn (module Impl)
 end
 
-module Counter
-: sig
+module Counter : sig
   include Actor
   val increase : data cast
   val get : (data, int) call
   val set : int -> (data, int) call
-end
-= struct
+end = struct
   type data = int
   let default () = 0
   let increase v = return (v + 1)

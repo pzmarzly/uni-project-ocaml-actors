@@ -1,13 +1,11 @@
 open Fatamorgana
 let (let* ) = bind
 
-module Expensive
-: sig
+module Expensive : sig
   include Actor
   val cast : data cast
   val call : (data, unit) call
-end
-= struct
+end = struct
   type data = unit
   let default () = ()
   let cast () =
@@ -18,12 +16,10 @@ end
     return ((), ())
 end
 
-module Client
-: sig
+module Client : sig
   include Actor
   val work : data cast
-end
-= struct
+end = struct
   type data = Expensive.data pid
   let default () = spawn (module Expensive)
   let work pid =
