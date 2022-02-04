@@ -15,7 +15,6 @@ module rec Executor : sig
   val wait_write : Unix.file_descr -> (unit -> unit task) -> unit task
 
   val create : unit -> t
-  val add_task : t -> unit task -> unit
   val add : t -> unit M.t -> unit
   val run_tasks : t -> unit
 end = struct
@@ -170,12 +169,13 @@ end = struct
 end
 
 type 'ret monadic = 'ret M.t
-type 'data pid = 'data M.pid
-type 'data cast = 'data M.cast
-type ('data, 'ret) call = ('data, 'ret) M.call
 let return = M.return
 let bind = M.bind
 let (let*) = M.bind
+
+type 'data pid = 'data M.pid
+type 'data cast = 'data M.cast
+type ('data, 'ret) call = ('data, 'ret) M.call
 let spawn = M.spawn
 let cast = M.cast
 let call = M.call
