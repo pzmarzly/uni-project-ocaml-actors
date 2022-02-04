@@ -37,7 +37,7 @@ end = struct
       return ()
     | _ -> return ()
   let rec handle fd state =
-    let* _ = wait_read fd in
+    let* () = wait_read fd in
     let buf = Bytes.create 5 in
     let num = Unix.read fd buf 0 4 in
     let* () = if num == 4 then cmd fd buf state else return () in
@@ -47,38 +47,36 @@ end
 
 module Server : sig
   include Actor
-  val bind : int -> data cast
+  val bind : data pid -> int -> data cast
   val port : (data, int) call
 end = struct
   type data = Counter.data pid * int option
   let data_format = []
   let default () = spawn (module Counter), None
 
-  let rec accept server_fd =
-    let* _ = wait_read server_fd in
+  let rec accept server_fd state =
+    let* () = wait_read server_fd in
     let (client_fd, _client_addr) = Unix.accept server_fd in
     let* () = cast (spawn (module Handler)) (Handler.handle client_fd) in
-    let* () = accept server_fd in (* TODO: cast_self *)
-    return ()
+    accept server_fd state (* TODO: cast_self *)
 
-  let bind port state =
+  let bind pid port state =
     match state with
+    | cnt, Some x -> failwith "Already bound"
     | cnt, None ->
       let server_fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
       Unix.setsockopt server_fd Unix.SO_REUSEADDR true;
       Unix.bind server_fd (Unix.ADDR_INET (Unix.inet_addr_any, port));
       Unix.listen server_fd 32;
-      let* () = accept server_fd in
+      let* () = cast pid (accept server_fd) in
       return (cnt, Some port)
-    | cnt, Some x -> failwith "already bound"
 
-  (* let port (cnt, port) = return ((cnt, port), Option.get port) *)
-  let port (cnt, port) = return ((cnt, port), 1234)
+  let port (cnt, port) = return ((cnt, port), Option.get port)
 end
 
 let main port_in =
   let pid = spawn (module Server) in
-  let* () = cast pid (Server.bind port_in) in
+  let* () = cast pid (Server.bind pid port_in) in
   let* port_out = call pid Server.port in
   return (Printf.printf "listening on %i\n%!" port_out)
 
