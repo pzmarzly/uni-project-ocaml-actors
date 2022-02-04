@@ -1,7 +1,7 @@
 open Fatamorgana
 let (let* ) = bind
 
-(* Issue: module type of Impl = Actor *)
+(* Doesn't work: module type of Impl = Actor *)
 module Registry (Impl : Actor) : sig
   include (module type of Impl)
   val get : Impl.data pid

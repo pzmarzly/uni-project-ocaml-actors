@@ -39,7 +39,7 @@ end = struct
     let buf = Bytes.create 5 in
     let num = Unix.read fd buf 0 4 in
     let* () = if num == 4 then cmd fd buf state else return () in
-    let* state = handle fd state in (* TODO: cast_self *)
+    let* state = handle fd state in (* FIXME: cast_self *)
     return state
 end
 
@@ -55,7 +55,7 @@ end = struct
     let* () = wait_read server_fd in
     let (client_fd, _client_addr) = Unix.accept server_fd in
     let* () = cast (spawn (module Handler)) (Handler.handle client_fd) in
-    accept server_fd state (* TODO: cast_self *)
+    accept server_fd state (* FIXME: cast_self *)
 
   let bind pid port state =
     match state with

@@ -19,20 +19,23 @@ module rec Executor : sig
   val add : t -> unit M.t -> unit
   val run_tasks : t -> unit
 end = struct
-  (* skrzynka odbiorcza aktora, w formie zadań *)
+  (* actor inbox is a list of tasks operating on its state *)
   type inbox = unit task list ref
-  (* instancja aktora: wewnętrzny stan i lista obliczeń do wykonania *)
+  (* actor instance (process): state + inbox *)
   and 'a pid = 'a ref * inbox
-  (* stan zadania do wykonania/wykonanego na executorze *)
+  (* state of executor task *)
   and 'a task =
   | Finished of 'a
   | Lazy of (unit -> 'a task)
   | ProcessInbox of inbox
-  | Pair of 'a task * 'a task (* teraz, później *)
+  | Pair of 'a task * 'a task (* now, later *)
   | WaitRead of Unix.file_descr * 'a task
   | WaitWrite of Unix.file_descr * 'a task
-  (* stan executora: kolejka zadań do wykonania, rd_tab, wr_tab *)
-  and t = unit task Queue.t * (Unix.file_descr, unit task) Hashtbl.t * (Unix.file_descr, unit task) Hashtbl.t
+  (* state of executor: task queue, rd_tab, wr_tab *)
+  and t =
+    unit task Queue.t
+    * (Unix.file_descr, unit task) Hashtbl.t
+    * (Unix.file_descr, unit task) Hashtbl.t
 
   let spawn (type data) (module M : Actor with type data = data) =
     ref (M.default ()), ref []
