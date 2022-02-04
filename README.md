@@ -41,7 +41,7 @@ let _ =
   Executor.run_tasks ex
 ```
 
-Features:
+## Features
 
 - cast vs call distinction (one-way vs bidirectional messaging)
 - strongly typed, not much boilerplate
@@ -50,10 +50,22 @@ Features:
 - asynchronous I/O (`wait_read` and `wait_write` via `Unix.select`)
 - timers (via [`timerfd` bindings](timerfd/timerfd.c))
 - temporal locality (actor inbox is fully processed before processing next actor)
+- thanks to temporal locality, `yield` is trivial (see sources)
 - `Executor.run_tasks` quits once everything is done
 - nothing happens unless a task is scheduler within `Executor`
+- inboxes are buffered but unbounded queues
 
-Other than that, it's very much NOT a state-of-the-art library. If I had to do it again from scratch, I would probably:
+Other than that, it's very much NOT a state-of-the-art library. I didn't do too much research before writing it. If I had to do it again from scratch, I would probably:
 
 - adopt [`libprocess`](https://www.youtube.com/watch?v=P6Y-Z1uPp4c) explicit scheduling scheme with `On(self(), fun () -> ...)`
 - at the very least, pass `pid` to actor functions... right now [`cast_self` is unnecessarily hard](examples/cast_self.ml)
+
+## Why write a task scheduler from scratch instead of using `Lwt`?
+
+- many interesting design decisions
+- lots of thinking about when and what will be evaluated
+- messages as a first-class citizen, with strong typing
+- full control over message ordering
+- we could play with state serialization, which could enable live reloading
+- if we wanted to, we can now change inbox to be bounded, add `cast_first` and `call_first`, etc.
+- we could implement our own calendar scheduler if we wanted not to use `timerfd`, e.g. FreeBSD's `callout` (fun!)
