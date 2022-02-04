@@ -1,5 +1,4 @@
 open Fatamorgana
-let (let* ) = bind
 
 module Counter : sig
   include Actor

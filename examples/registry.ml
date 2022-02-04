@@ -1,5 +1,4 @@
 open Fatamorgana
-let (let* ) = bind
 
 (* Doesn't work: module type of Impl = Actor *)
 module Registry (Impl : Actor) : sig
