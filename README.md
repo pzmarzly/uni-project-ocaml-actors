@@ -1,5 +1,7 @@
 # Fatamorgana - a toy actor framework for OCaml
 
+[GitHub](https://github.com/pzmarzly/uni-project-ocaml-actors)
+
 This is a library that I wrote as a final project for a [Functional Programming course](https://zapisy.ii.uni.wroc.pl/courses/programowanie-funkcyjne-202122-zimowy). It lets programmer to write programs using actors (state + inbox) as an abstraction. From the [`server.ml` example](examples/server.ml):
 
 ```ocaml
